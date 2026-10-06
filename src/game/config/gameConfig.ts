@@ -7,4 +7,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   height: 720,
   backgroundColor: "#1a1a1a",
   scene: [GameScene],
+  roundPixels: true,
 };
