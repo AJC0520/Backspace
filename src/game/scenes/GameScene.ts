@@ -3,10 +3,14 @@ import { WORDS } from "../constants/words";
 import { Player } from "../entities/Player";
 
 export class GameScene extends Phaser.Scene {
+  private debug = true;
+  private debugGfx!: Phaser.GameObjects.Graphics;
+
   private typed = "";
   private player!: Phaser.GameObjects.Rectangle;
   private display!: Phaser.GameObjects.Text;
   private enemies: Phaser.GameObjects.Rectangle[] = [];
+  private maxEnemies = 5;
   private enemySpeed = 10;
   private shown: Phaser.GameObjects.Text[] = [];
 
@@ -17,7 +21,13 @@ export class GameScene extends Phaser.Scene {
   preload() {}
 
   create() {
+    this.typed = "";
+    this.enemies = [];
+    this.shown = [];
+
     this.spawnWord();
+    
+    this.debugGfx = this.add.graphics().setDepth(1000);
 
     this.display = this.add.text(100, 100, "", {
       fontFamily: "monospace",
@@ -51,15 +61,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    const hitbox = this.player.getBounds();
+    Phaser.Geom.Rectangle.Inflate(hitbox, 0, 270);
+
+    this.debugGfx.clear();
+    this.debugGfx.lineStyle(2, 0x00ddf00);
+    this.debugGfx.strokeRectShape(hitbox);
+
     for (const enemy of this.enemies) {
       enemy.x -= this.enemySpeed * (delta / 1000);
 
       if (
         Phaser.Geom.Intersects.RectangleToRectangle(
-          this.player.getBounds(),
+          hitbox,
           enemy.getBounds(),
         )
       ) {
+        this.scene.restart();
+        window.alert("game over")
         console.log("collision");
       }
     }
@@ -79,6 +98,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnEnemy() {
+
+    if(this.enemies.length == this.maxEnemies) return;
     const y = Phaser.Math.Between(100, 500);
     const enemy = this.add.rectangle(900, y, 40, 40, 0xff3333);
     this.enemies.push(enemy);
