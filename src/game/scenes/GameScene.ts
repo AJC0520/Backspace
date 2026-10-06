@@ -3,16 +3,20 @@ import { WORDS } from "../constants/words";
 import { Player } from "../entities/Player";
 
 export class GameScene extends Phaser.Scene {
-  private debug = true;
   private debugGfx!: Phaser.GameObjects.Graphics;
 
+  // Text the player has typed so far
   private typed = "";
   private player!: Phaser.GameObjects.Rectangle;
+  // On-screen text showing what the player has typed
   private display!: Phaser.GameObjects.Text;
   private enemies: Phaser.GameObjects.Rectangle[] = [];
   private maxEnemies = 5;
+  // Pixels per second moving toward the player
   private enemySpeed = 10;
+  // The word currently on screen (only ever holds one)
   private shown: Phaser.GameObjects.Text[] = [];
+
 
   constructor() {
     super("GameScene");
@@ -21,12 +25,14 @@ export class GameScene extends Phaser.Scene {
   preload() {}
 
   create() {
+    // Reset state: scene instances are reused on restart, so fields keep old values
     this.typed = "";
     this.enemies = [];
     this.shown = [];
 
     this.spawnWord();
-    
+
+    // Drawn above everything else so hitboxes are always visible
     this.debugGfx = this.add.graphics().setDepth(1000);
 
     this.display = this.add.text(100, 100, "", {
@@ -35,14 +41,17 @@ export class GameScene extends Phaser.Scene {
       color: "#ffffff",
     });
 
+    // Typing input: build up the typed string one key at a time
     this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
       if (event.key === "Backspace") {
         this.typed = this.typed.slice(0, -1);
       } else if (event.key.length === 1) {
+        // length === 1 filters out keys like Shift, Enter, ArrowLeft
         this.typed += event.key;
       }
       this.display.setText(this.typed + "|");
 
+      // Correct word: push back the nearest enemy, clear input, show a new word
       if (this.shown.some((word) => word.text === this.typed)) {
         this.pushBackClosest(50);
         this.typed = "";
@@ -51,8 +60,16 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    // add player
     this.player = this.add.rectangle(400, 300, 40, 40, 0x4488ff);
 
+    // render hitbox 
+    const hitbox = this.player.getBounds()
+    Phaser.Geom.Rectangle.Inflate(hitbox, 0, 270);
+    this.debugGfx.lineStyle(2, 0x00ddf00);
+    this.debugGfx.strokeRectShape(hitbox);
+
+    // Spawn a new enemy every 2 seconds
     this.time.addEvent({
       delay: 2000,
       loop: true,
@@ -61,16 +78,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    // The hitbox is bigger than the rendered player. getBounds() returns a
+    // fresh rectangle, so inflating it doesn't change how the player looks.
     const hitbox = this.player.getBounds();
-    Phaser.Geom.Rectangle.Inflate(hitbox, 0, 270);
-
-    this.debugGfx.clear();
-    this.debugGfx.lineStyle(2, 0x00ddf00);
-    this.debugGfx.strokeRectShape(hitbox);
 
     for (const enemy of this.enemies) {
+      // Move left; delta is in ms, so dividing by 1000 gives frame-rate independent speed
       enemy.x -= this.enemySpeed * (delta / 1000);
 
+      // Enemy touched the player's hitbox: game over
       if (
         Phaser.Geom.Intersects.RectangleToRectangle(
           hitbox,
@@ -84,6 +100,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // Replace the word on screen with a new random one
   private spawnWord() {
     const word = Phaser.Utils.Array.GetRandom([...WORDS]);
 
@@ -93,10 +110,12 @@ export class GameScene extends Phaser.Scene {
       color: "#ffffff",
     });
 
+    // Destroy the old word before storing the new one
     this.shown.pop()?.destroy();
     this.shown.push(text);
   }
 
+  // Add an enemy at the right edge, at a random height, up to maxEnemies
   private spawnEnemy() {
 
     if(this.enemies.length == this.maxEnemies) return;
@@ -105,6 +124,8 @@ export class GameScene extends Phaser.Scene {
     this.enemies.push(enemy);
   }
 
+  // Find the enemy nearest the player (straight-line distance) and push it
+  // back to the right by `amount` pixels
   private pushBackClosest(amount: number) {
     let closest: Phaser.GameObjects.Rectangle | undefined;
     let best = Infinity;
@@ -122,6 +143,7 @@ export class GameScene extends Phaser.Scene {
         closest = enemy;
       }
     }
+    // No enemies on screen yet: nothing to push
     if (closest) closest.x += amount;
   }
 }
