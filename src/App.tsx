@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Phaser from 'phaser'
 import './App.css'
-import { GameScene } from './scenes/GameScene'
+import { gameConfig } from './game/config/gameConfig'
 
 function App() {
   const gameContainerRef = useRef<HTMLDivElement | null>(null)
@@ -12,12 +12,8 @@ function App() {
     }
 
     const game = new Phaser.Game({
-      type: Phaser.AUTO,
-      width: 1280,
-      height: 720,
-      backgroundColor: '#1a1a1a',
+      ...gameConfig,
       parent: gameContainerRef.current,
-      scene: [GameScene],
     })
 
     return () => {
