@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { WORDS } from "../constants/words";
+import { WORD_CATEGORIES, DIFFICULTY_ORDER } from "../constants/words";
 import { Player } from "../entities/Player";
 
 // Hitbox outlines only show in dev builds (`npm run dev`), never in production.
@@ -12,6 +12,8 @@ export class GameScene extends Phaser.Scene {
   // Text the player has typed so far
   private typed = "";
   private player!: Phaser.GameObjects.Rectangle;
+  // Collision area around the player (taller than the player sprite)
+  private hitbox!: Phaser.Geom.Rectangle;
   // On-screen text showing what the player has typed
   private display!: Phaser.GameObjects.Text;
   private enemies: Phaser.GameObjects.Rectangle[] = [];
@@ -21,6 +23,12 @@ export class GameScene extends Phaser.Scene {
   // The word currently on screen (only ever holds one)
   private shown: Phaser.GameObjects.Text[] = [];
 
+  // levels
+  private level = 0;
+  private currentLevelWords: string[] = [];
+  private guessedLevelWords = 0;
+  private progress!: Phaser.GameObjects.Text;
+  private levelTotal = 0;
 
   constructor() {
     super("GameScene");
@@ -31,9 +39,18 @@ export class GameScene extends Phaser.Scene {
   create() {
     // Reset state: scene instances are reused on restart, so fields keep old values
     this.typed = "";
+    this.level = 0;
     this.enemies = [];
     this.shown = [];
 
+    this.progress = this.add.text(100, 400, "", {
+      fontFamily: "monospace",
+      fontSize: "32px",
+      color: "#ffffff",
+    });
+
+    this.loadLevel(0);
+    
     this.spawnWord();
 
     // Drawn above everything else so hitboxes are always visible
@@ -60,19 +77,22 @@ export class GameScene extends Phaser.Scene {
         this.pushBackClosest(50);
         this.typed = "";
         this.display.setText(this.typed);
+        this.guessedLevelWords++;
         this.spawnWord();
       }
     });
 
     // add player
     this.player = this.add.rectangle(400, 300, 40, 40, 0x4488ff);
-    const hitbox = this.player.getBounds();
-    
-    // hitboux drawing if debug is on
+    // The hitbox is bigger than the rendered player. getBounds() returns a
+    // fresh rectangle, so inflating it doesn't change how the player looks.
+    this.hitbox = this.player.getBounds();
+    Phaser.Geom.Rectangle.Inflate(this.hitbox, 0, 270);
+
+    // hitbox drawing if debug is on
     if (DEBUG) {
-      Phaser.Geom.Rectangle.Inflate(hitbox, 0, 270);
       this.debugGfx.lineStyle(2, 0x00ddff);
-      this.debugGfx.strokeRectShape(hitbox);
+      this.debugGfx.strokeRectShape(this.hitbox);
     }
 
     // Spawn a new enemy every 2 seconds
@@ -84,10 +104,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    // The hitbox is bigger than the rendered player. getBounds() returns a
-    // fresh rectangle, so inflating it doesn't change how the player looks.
-    const hitbox = this.player.getBounds();
-
     for (const enemy of this.enemies) {
       // Move left; delta is in ms, so dividing by 1000 gives frame-rate independent speed
       enemy.x -= this.enemySpeed * (delta / 1000);
@@ -95,26 +111,33 @@ export class GameScene extends Phaser.Scene {
       // Enemy touched the player's hitbox: game over
       if (
         Phaser.Geom.Intersects.RectangleToRectangle(
-          hitbox,
+          this.hitbox,
           enemy.getBounds(),
         )
       ) {
         this.scene.restart();
-        window.alert("game over")
-        console.log("collision");
+        window.alert("game over");
+        // Stop: the scene is restarting, don't keep checking the old enemies
+        return;
       }
     }
   }
 
   // Replace the word on screen with a new random one
   private spawnWord() {
-    const word = Phaser.Utils.Array.GetRandom([...WORDS]);
+    // Tier used up: move to the next one (the last tier reloads itself)
+    if (this.currentLevelWords.length === 0) this.loadLevel(this.level + 1);
+
+    const i = Phaser.Math.Between(0, this.currentLevelWords.length - 1);
+    const word = this.currentLevelWords.splice(i, 1)[0];
 
     const text = this.add.text(100, 200, word, {
       fontFamily: "monospace",
       fontSize: "32px",
       color: "#ffffff",
     });
+
+    this.progress.setText(`${this.guessedLevelWords}/${this.levelTotal}`);
 
     // Destroy the old word before storing the new one
     this.shown.pop()?.destroy();
@@ -123,8 +146,7 @@ export class GameScene extends Phaser.Scene {
 
   // Add an enemy at the right edge, at a random height, up to maxEnemies
   private spawnEnemy() {
-
-    if(this.enemies.length == this.maxEnemies) return;
+    if (this.enemies.length == this.maxEnemies) return;
     const y = Phaser.Math.Between(100, 500);
     const enemy = this.add.rectangle(900, y, 40, 40, 0xff3333);
     this.enemies.push(enemy);
@@ -151,5 +173,12 @@ export class GameScene extends Phaser.Scene {
     }
     // No enemies on screen yet: nothing to push
     if (closest) closest.x += amount;
+  }
+
+  private loadLevel(level: number) {
+    this.level = Math.min(level, DIFFICULTY_ORDER.length - 1);
+    this.currentLevelWords = [...WORD_CATEGORIES[DIFFICULTY_ORDER[this.level]]];
+    this.levelTotal = this.currentLevelWords.length;
+    this.guessedLevelWords = 0;
   }
 }
