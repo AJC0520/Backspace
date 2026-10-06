@@ -2,9 +2,7 @@ import Phaser from "phaser";
 import { WORD_CATEGORIES, DIFFICULTY_ORDER } from "../constants/words";
 import { Player } from "../entities/Player";
 
-// Hitbox outlines only show in dev builds (`npm run dev`), never in production.
-// Set to `true` to force them on.
-const DEBUG = import.meta.env.DEV;
+const DEBUG = false;
 
 export class GameScene extends Phaser.Scene {
   private debugGfx!: Phaser.GameObjects.Graphics;
@@ -29,6 +27,7 @@ export class GameScene extends Phaser.Scene {
   private guessedLevelWords = 0;
   private progress!: Phaser.GameObjects.Text;
   private levelTotal = 0;
+
 
   constructor() {
     super("GameScene");
@@ -147,9 +146,22 @@ export class GameScene extends Phaser.Scene {
   // Add an enemy at the right edge, at a random height, up to maxEnemies
   private spawnEnemy() {
     if (this.enemies.length == this.maxEnemies) return;
-    const y = Phaser.Math.Between(100, 500);
-    const enemy = this.add.rectangle(900, y, 40, 40, 0xff3333);
-    this.enemies.push(enemy);
+    const size = 40;
+    const spawnX = 900;
+
+    for (let attempt = 0; attempt < 10; attempt++){
+      const y = Phaser.Math.Between(100, 700);
+      
+      const blocked = this.enemies.some(
+        (e) => Math.abs(e.y - y) < size + 10,
+      );
+
+      if (blocked) continue;
+
+      const enemy = this.add.rectangle(900, y, 40, 40, 0xff3333);
+      this.enemies.push(enemy);
+      return
+    }
   }
 
   // Find the enemy nearest the player (straight-line distance) and push it
