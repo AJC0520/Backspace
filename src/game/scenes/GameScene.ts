@@ -28,14 +28,19 @@ export class GameScene extends Phaser.Scene {
   private progress!: Phaser.GameObjects.Text;
   private levelTotal = 0;
 
-
   constructor() {
     super("GameScene");
   }
 
-  preload() {}
+  preload() {
+    this.load.image("background", "src/assets/background.jpg");
+  }
 
   create() {
+    //background
+    const bg = this.add.image(0,0,"background").setOrigin(0, 0);
+    bg.setDisplaySize(this.scale.width, this.scale.height);
+    bg.setDepth(-1);
     // Reset state: scene instances are reused on restart, so fields keep old values
     this.typed = "";
     this.level = 0;
@@ -49,7 +54,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.loadLevel(0);
-    
+
     this.spawnWord();
 
     // Drawn above everything else so hitboxes are always visible
@@ -68,6 +73,7 @@ export class GameScene extends Phaser.Scene {
       } else if (event.key.length === 1) {
         // length === 1 filters out keys like Shift, Enter, ArrowLeft
         this.typed += event.key;
+        this.updateWordColor();
       }
       this.display.setText(this.typed + "|");
 
@@ -149,33 +155,33 @@ export class GameScene extends Phaser.Scene {
     const size = 40;
     const spawnX = 900;
 
-    for (let attempt = 0; attempt < 10; attempt++){
+    for (let attempt = 0; attempt < 10; attempt++) {
       const y = Phaser.Math.Between(100, 700);
-      
-      const blocked = this.enemies.some(
-        (e) => Math.abs(e.y - y) < size + 10,
-      );
+
+      const blocked = this.enemies.some((e) => Math.abs(e.y - y) < size + 10);
 
       if (blocked) continue;
 
-      const enemy = this.add.rectangle(900, y, 40, 40, 0xff3333);
+      const enemy = this.add.rectangle(spawnX, y, size, size, 0xff3333);
       this.enemies.push(enemy);
-      return
+      return;
     }
   }
 
   // Find the enemy nearest the player (straight-line distance) and push it
   // back to the right by `amount` pixels
   private pushBackClosest(amount: number) {
+    if (this.enemies.length === 0) return;
+
     let closest: Phaser.GameObjects.Rectangle | undefined;
     let best = Infinity;
 
     for (const enemy of this.enemies) {
       const d = Phaser.Math.Distance.Between(
         this.player.x,
-        this.player.y,
+        0,
         enemy.x,
-        enemy.y,
+        0,
       );
 
       if (d < best) {
@@ -183,8 +189,15 @@ export class GameScene extends Phaser.Scene {
         closest = enemy;
       }
     }
-    // No enemies on screen yet: nothing to push
-    if (closest) closest.x += amount;
+
+    if (!closest) return;
+
+    this.tweens.add({
+      targets: closest,
+      x: closest.x + amount,
+      duration: 150,
+      ease: "Cubic.easeOut",
+    });
   }
 
   private loadLevel(level: number) {
@@ -192,5 +205,14 @@ export class GameScene extends Phaser.Scene {
     this.currentLevelWords = [...WORD_CATEGORIES[DIFFICULTY_ORDER[this.level]]];
     this.levelTotal = this.currentLevelWords.length;
     this.guessedLevelWords = 0;
+  }
+
+  private updateWordColor() {
+    const word = this.shown[0];
+    if (!word) return;
+
+    const target = word.text;
+    const correctSoFar = target.startsWith(this.typed);
+    word.setColor(correctSoFar ? "#66ff66" : "#ff6666");
   }
 }
