@@ -2,6 +2,10 @@ import Phaser from "phaser";
 import { WORDS } from "../constants/words";
 import { Player } from "../entities/Player";
 
+// Hitbox outlines only show in dev builds (`npm run dev`), never in production.
+// Set to `true` to force them on.
+const DEBUG = import.meta.env.DEV;
+
 export class GameScene extends Phaser.Scene {
   private debugGfx!: Phaser.GameObjects.Graphics;
 
@@ -62,12 +66,14 @@ export class GameScene extends Phaser.Scene {
 
     // add player
     this.player = this.add.rectangle(400, 300, 40, 40, 0x4488ff);
-
-    // render hitbox 
-    const hitbox = this.player.getBounds()
-    Phaser.Geom.Rectangle.Inflate(hitbox, 0, 270);
-    this.debugGfx.lineStyle(2, 0x00ddf00);
-    this.debugGfx.strokeRectShape(hitbox);
+    const hitbox = this.player.getBounds();
+    
+    // hitboux drawing if debug is on
+    if (DEBUG) {
+      Phaser.Geom.Rectangle.Inflate(hitbox, 0, 270);
+      this.debugGfx.lineStyle(2, 0x00ddff);
+      this.debugGfx.strokeRectShape(hitbox);
+    }
 
     // Spawn a new enemy every 2 seconds
     this.time.addEvent({
